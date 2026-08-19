@@ -5,7 +5,7 @@ designed for use on [RunPod](https://www.runpod.io/).
 
 ## Features
 
-- Multi-stage build based on `nvidia/cuda:13.3.0` (CUDA GPU support out of the box)
+- Multi-stage build based on `debian:trixie-slim` with CUDA 13.3 packages from Nvidia's official Debian repository
 - llama.cpp `llama-server` and all companion tools (`llama-cli`, `llama-bench`, etc.) installed to `/usr/local/bin`
 - llama.cpp `llama-server` with OpenAI-compatible `/v1/` endpoints
 - API key protection via environment variable

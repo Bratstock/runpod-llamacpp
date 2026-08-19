@@ -1,12 +1,25 @@
+# Shared base: debian:trixie-slim with Nvidia CUDA 13.3 apt repository configured
+FROM debian:trixie-slim AS cuda-base
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates \
+    curl \
+    gnupg \
+    && curl -fsSL https://developer.download.nvidia.com/compute/cuda/repos/debian13/x86_64/3bf863cc.pub \
+       | gpg --dearmor -o /usr/share/keyrings/nvidia-cuda.gpg \
+    && echo "deb [signed-by=/usr/share/keyrings/nvidia-cuda.gpg] https://developer.download.nvidia.com/compute/cuda/repos/debian13/x86_64 /" \
+       > /etc/apt/sources.list.d/nvidia-cuda.list \
+    && apt-get update \
+    && rm -rf /var/lib/apt/lists/*
+
 # Stage 1: Build llama.cpp with CUDA support
-FROM nvidia/cuda:13.3.0-devel-ubuntu24.04 AS builder
+FROM cuda-base AS builder
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     cmake \
     git \
-    ca-certificates \
-    curl \
+    cuda-toolkit-13-3 \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /build
@@ -17,6 +30,7 @@ RUN git clone --depth=1 --branch "${LLAMA_CPP_REF}" https://github.com/ggerganov
     cmake -B build \
         -DCMAKE_BUILD_TYPE=Release \
         -DGGML_CUDA=ON \
+        -DCMAKE_CUDA_COMPILER=/usr/local/cuda-13.3/bin/nvcc \
         -DLLAMA_BUILD_SERVER=ON \
         -DLLAMA_BUILD_TESTS=OFF \
         -DLLAMA_BUILD_EXAMPLES=ON \
@@ -25,13 +39,13 @@ RUN git clone --depth=1 --branch "${LLAMA_CPP_REF}" https://github.com/ggerganov
     cmake --install build
 
 # Stage 2: Runtime image
-FROM nvidia/cuda:13.3.0-runtime-ubuntu24.04
+FROM cuda-base
 
+# Install CUDA runtime libraries and other runtime dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
     openssh-server \
-    ca-certificates \
-    curl \
     libgomp1 \
+    cuda-libraries-13-3 \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy all installed llama.cpp binaries and libraries from builder
