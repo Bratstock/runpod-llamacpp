@@ -59,7 +59,7 @@ if [ -n "${EXTRA_ARGS:-}" ]; then
     LLAMA_ARGS+=("${EXTRA_ARRAY[@]}")
 fi
 
-echo "[entrypoint] Starting llama-server with args: ${LLAMA_ARGS[*]}"
+echo "[entrypoint] Starting llama-server..."
 
 # Run llama-server in the foreground; its stdout/stderr go to the container log.
 llama-server "${LLAMA_ARGS[@]}" &
