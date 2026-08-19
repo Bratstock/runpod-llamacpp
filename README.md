@@ -78,7 +78,7 @@ docker run -d \
 
 ```bash
 curl http://localhost:8080/v1/chat/completions \
-  -H "Authorization: ******" \
+  -H "Authorization: Bearer $LLAMA_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
     "model": "local",
