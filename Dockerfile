@@ -11,7 +11,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 WORKDIR /build
 
-RUN git clone --depth=1 https://github.com/ggerganov/llama.cpp.git && \
+ARG LLAMA_CPP_REF="master"
+RUN git clone --depth=1 --branch "${LLAMA_CPP_REF}" https://github.com/ggerganov/llama.cpp.git && \
     cd llama.cpp && \
     cmake -B build \
         -DCMAKE_BUILD_TYPE=Release \
