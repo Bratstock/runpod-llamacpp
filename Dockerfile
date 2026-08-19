@@ -89,7 +89,7 @@ ENV HOST="0.0.0.0"
 # Port for the HTTP server
 ENV PORT="8080"
 
-# Any extra arguments forwarded verbatim to llama-server
+# Any extra arguments appended to llama-server (whitespace-split; quotes not preserved)
 ENV EXTRA_ARGS=""
 
 VOLUME ["/models", "/cache"]
