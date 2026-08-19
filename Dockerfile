@@ -1,5 +1,5 @@
-# Stage 1: Build llama.cpp
-FROM debian:trixie-slim AS builder
+# Stage 1: Build llama.cpp with CUDA support
+FROM nvidia/cuda:13.3.0-devel-ubuntu24.04 AS builder
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
@@ -16,13 +16,16 @@ RUN git clone --depth=1 --branch "${LLAMA_CPP_REF}" https://github.com/ggerganov
     cd llama.cpp && \
     cmake -B build \
         -DCMAKE_BUILD_TYPE=Release \
+        -DGGML_CUDA=ON \
         -DLLAMA_BUILD_SERVER=ON \
         -DLLAMA_BUILD_TESTS=OFF \
-        -DLLAMA_BUILD_EXAMPLES=OFF && \
-    cmake --build build --config Release -j$(nproc) --target llama-server
+        -DLLAMA_BUILD_EXAMPLES=ON \
+        -DCMAKE_INSTALL_PREFIX=/usr/local && \
+    cmake --build build --config Release -j$(nproc) && \
+    cmake --install build
 
 # Stage 2: Runtime image
-FROM debian:trixie-slim
+FROM nvidia/cuda:13.3.0-runtime-ubuntu24.04
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     openssh-server \
@@ -31,8 +34,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libgomp1 \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy llama-server binary
-COPY --from=builder /build/llama.cpp/build/bin/llama-server /usr/local/bin/llama-server
+# Copy all installed llama.cpp binaries and libraries from builder
+COPY --from=builder /usr/local/bin/llama-* /usr/local/bin/
+COPY --from=builder /usr/local/lib/libllama* /usr/local/lib/
+COPY --from=builder /usr/local/lib/libggml* /usr/local/lib/
+RUN ldconfig
 
 # Copy entrypoint script
 COPY entrypoint.sh /entrypoint.sh
@@ -61,10 +67,10 @@ ENV LLAMA_API_KEY=""
 ENV SSH_PUBLIC_KEY=""
 
 # Path to the GGUF model file inside the container
-ENV MODEL_PATH="/models/model.gguf"
+ENV MODEL_PATH="/opt/models/model.gguf"
 
 # Cache / KV-cache directory used by llama.cpp
-ENV CACHE_DIR="/cache"
+ENV CACHE_DIR="/opt/cache"
 
 # Set to "true" to allow llama.cpp to download models from Hugging Face at startup
 # (maps to --hf-repo / --hf-file or similar flags; see entrypoint.sh)
@@ -91,7 +97,5 @@ ENV PORT="8080"
 
 # Any extra arguments appended to llama-server (whitespace-split; quotes not preserved)
 ENV EXTRA_ARGS=""
-
-VOLUME ["/models", "/cache"]
 
 ENTRYPOINT ["/entrypoint.sh"]

@@ -5,7 +5,8 @@ designed for use on [RunPod](https://www.runpod.io/).
 
 ## Features
 
-- Multi-stage build based on `debian:trixie-slim` (small runtime image)
+- Multi-stage build based on `nvidia/cuda:13.3.0` (CUDA GPU support out of the box)
+- llama.cpp `llama-server` and all companion tools (`llama-cli`, `llama-bench`, etc.) installed to `/usr/local/bin`
 - llama.cpp `llama-server` with OpenAI-compatible `/v1/` endpoints
 - API key protection via environment variable
 - Root SSH access (key-based only) via environment variable
@@ -18,8 +19,8 @@ designed for use on [RunPod](https://www.runpod.io/).
 |---|---|---|
 | `LLAMA_API_KEY` | *(empty)* | API key required for every request. Leave empty to disable auth (not recommended). |
 | `SSH_PUBLIC_KEY` | *(empty)* | SSH public key for root login (e.g. contents of `~/.ssh/id_ed25519.pub`). |
-| `MODEL_PATH` | `/models/model.gguf` | Path to the GGUF model file inside the container. |
-| `CACHE_DIR` | `/cache` | Directory used by llama.cpp for KV-cache / disk offload. |
+| `MODEL_PATH` | `/opt/models/model.gguf` | Path to the GGUF model file inside the container. |
+| `CACHE_DIR` | `/opt/cache` | Directory used by llama.cpp for KV-cache / disk offload. |
 | `AUTO_DOWNLOAD` | `false` | Set to `true` to download the model from Hugging Face at startup. Requires `HF_REPO` and `HF_FILE`. |
 | `HF_REPO` | *(empty)* | Hugging Face repository (e.g. `TheBloke/Mistral-7B-Instruct-v0.2-GGUF`). |
 | `HF_FILE` | *(empty)* | Filename inside the HF repository (e.g. `mistral-7b-instruct-v0.2.Q4_K_M.gguf`). |
@@ -37,24 +38,18 @@ designed for use on [RunPod](https://www.runpod.io/).
 | `8080` | llama.cpp HTTP API |
 | `22` | SSH |
 
-## Volumes
-
-| Path | Purpose |
-|---|---|
-| `/models` | Mount your model files here. |
-| `/cache` | Persistent KV-cache / disk-offload storage. |
-
 ## Quick Start
 
 ### Using a local model file
 
+On RunPod the network storage is automatically mounted into the container. Pass the full path to the model file via `MODEL_PATH`.
+
 ```bash
 docker run -d \
   -p 8080:8080 -p 2222:22 \
-  -v /path/to/models:/models \
   -e LLAMA_API_KEY="mysecretkey" \
   -e SSH_PUBLIC_KEY="$(cat ~/.ssh/id_ed25519.pub)" \
-  -e MODEL_PATH="/models/mistral-7b.Q4_K_M.gguf" \
+  -e MODEL_PATH="/runpod-volume/models/mistral-7b.Q4_K_M.gguf" \
   -e CTX_SIZE=8192 \
   -e N_GPU_LAYERS=35 \
   bratstock/runpod-llamacpp
@@ -65,7 +60,6 @@ docker run -d \
 ```bash
 docker run -d \
   -p 8080:8080 -p 2222:22 \
-  -v /path/to/cache:/cache \
   -e LLAMA_API_KEY="mysecretkey" \
   -e SSH_PUBLIC_KEY="$(cat ~/.ssh/id_ed25519.pub)" \
   -e AUTO_DOWNLOAD=true \
