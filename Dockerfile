@@ -1,57 +1,67 @@
 # Shared base: debian:trixie-slim with Nvidia CUDA 13.3 apt repository configured
-FROM debian:trixie-slim AS cuda-base
+FROM debian:trixie AS builder
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    ca-certificates \
-    curl \
-    gnupg \
-    && curl -fsSL https://developer.download.nvidia.com/compute/cuda/repos/debian13/x86_64/3bf863cc.pub \
-       | gpg --dearmor -o /usr/share/keyrings/nvidia-cuda.gpg \
-    && echo "deb [signed-by=/usr/share/keyrings/nvidia-cuda.gpg] https://developer.download.nvidia.com/compute/cuda/repos/debian13/x86_64 /" \
-       > /etc/apt/sources.list.d/nvidia-cuda.list \
-    && apt-get update \
+    ca-certificates wget gnupg git cmake build-essential libcurl4-openssl-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# Stage 1: Build llama.cpp with CUDA support
-FROM cuda-base AS builder
+# Offizielles NVIDIA Repository für Debian 13 (Trixie) einbinden
+RUN wget https://developer.download.nvidia.com/compute/cuda/repos/debian13/x86_64/cuda-keyring_1.1-1_all.deb && \
+    dpkg -i cuda-keyring_1.1-1_all.deb && rm cuda-keyring_1.1-1_all.deb
 
+# Das aktuelle CUDA-13 Toolkit für den Compiler installieren
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential \
-    cmake \
-    git \
     cuda-toolkit-13-3 \
     && rm -rf /var/lib/apt/lists/*
 
-WORKDIR /build
+# Pfade für den NVIDIA-Compiler (nvcc) setzen
+ENV PATH="/usr/local/cuda-13.3/bin:${PATH}"
+
+WORKDIR /app
 
 ARG LLAMA_CPP_REF="master"
-RUN git clone --depth=1 --branch "${LLAMA_CPP_REF}" https://github.com/ggerganov/llama.cpp.git && \
-    cd llama.cpp && \
-    cmake -B build \
-        -DCMAKE_BUILD_TYPE=Release \
-        -DGGML_CUDA=ON \
-        -DCMAKE_CUDA_COMPILER=/usr/local/cuda-13.3/bin/nvcc \
-        -DLLAMA_BUILD_SERVER=ON \
-        -DLLAMA_BUILD_TESTS=OFF \
-        -DLLAMA_BUILD_EXAMPLES=ON \
-        -DCMAKE_INSTALL_PREFIX=/usr/local && \
-    cmake --build build --config Release -j$(nproc) && \
-    cmake --install build
+RUN git clone --depth=1 --branch "${LLAMA_CPP_REF}" https://github.com/ggerganov/llama.cpp.git .
 
-# Stage 2: Runtime image
-FROM cuda-base
+RUN mkdir build
+WORKDIR /app/build
 
-# Install CUDA runtime libraries and other runtime dependencies
+RUN cmake .. \
+    -DGGML_CUDA=ON \
+    -DCMAKE_BUILD_TYPE=Release \
+    -DCMAKE_CUDA=ARCHITECTURES=all \
+    -DLLAMA_BUILD_EXAMPLES=ON \
+    -DLLAMA_BUILD_SERVER=ON \
+    -DLLAMA_BUILD_TESTS=OFF \
+    -DCMAKE_INSTALL_PREFIX=/app/dist
+RUN cmake --build . --config Release -j$(nproc)
+RUN cmake --install . --prefix /app/dist
+
+# ==========================================
+# STAGE 2: Runtime (Sicheres Debian Trixie mit HTTPS & SSH)
+# ==========================================
+FROM debian:trixie
+ENV DEBIAN_FRONTEND=noninteractive
+ENV TZ=Europe/Berlin
+
+# 1. Systempakete, Nginx (HTTPS-Proxy) und OpenSSH installieren
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    openssh-server \
-    libgomp1 \
-    cuda-libraries-13-3 \
+    ca-certificates wget gnupg curl nginx openssh-server libcurl4 \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy all installed llama.cpp binaries and libraries from builder
-COPY --from=builder /usr/local/bin/llama-* /usr/local/bin/
-COPY --from=builder /usr/local/lib/libllama* /usr/local/lib/
-COPY --from=builder /usr/local/lib/libggml* /usr/local/lib/
+# 2. NVIDIA Repository auch in der Runtime aktivieren
+RUN wget https://developer.download.nvidia.com/compute/cuda/repos/debian13/x86_64/cuda-keyring_1.1-1_all.deb && \
+    dpkg -i cuda-keyring_1.1-1_all.deb && rm cuda-keyring_1.1-1_all.deb
+
+# 3. Nur die für die Ausführung notwendige CUDA-13-Laufzeitbibliothek installieren
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    cuda-cudart-13-3 \
+    && rm -rf /var/lib/apt/lists/*
+
+# Systempfad für die GPU-Bibliotheken hinterlegen
+ENV LD_LIBRARY_PATH="/usr/local/cuda-13.3/lib64:${LD_LIBRARY_PATH}"
+
+# Kompilierten Server aus Stage 1 übernehmen
+COPY --from=builder /app/dist/* /usr/local
 RUN ldconfig
 
 # Copy entrypoint script
@@ -68,10 +78,12 @@ RUN sed -i 's/^#\?PermitRootLogin.*/PermitRootLogin prohibit-password/' /etc/ssh
     sed -i 's/^#\?PubkeyAuthentication.*/PubkeyAuthentication yes/' /etc/ssh/sshd_config && \
     echo "AuthorizedKeysFile .ssh/authorized_keys" >> /etc/ssh/sshd_config
 
-# llama.cpp API default port
-EXPOSE 8080
 # SSH default port
 EXPOSE 22
+# nginx
+EXPOSE 80 443
+# llama.cpp API default port
+EXPOSE 8080
 
 # ── Environment variables ──────────────────────────────────────────────────────
 # API key for llama.cpp OpenAI-compatible endpoint (required)
