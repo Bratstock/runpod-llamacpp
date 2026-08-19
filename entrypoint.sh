@@ -54,8 +54,8 @@ fi
 
 # Extra user-supplied arguments
 if [ -n "${EXTRA_ARGS:-}" ]; then
-    # Split EXTRA_ARGS on whitespace safely
-    read -ra EXTRA_ARRAY <<< "${EXTRA_ARGS}"
+    # Note: EXTRA_ARGS is split on whitespace; shell-style quotes are not preserved.
+    read -r -a EXTRA_ARRAY <<< "${EXTRA_ARGS}"
     LLAMA_ARGS+=("${EXTRA_ARRAY[@]}")
 fi
 
