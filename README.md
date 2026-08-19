@@ -28,7 +28,7 @@ designed for use on [RunPod](https://www.runpod.io/).
 | `N_PARALLEL` | `1` | Number of parallel request slots. |
 | `HOST` | `0.0.0.0` | Bind address for the HTTP server. |
 | `PORT` | `8080` | Port for the HTTP server. |
-| `EXTRA_ARGS` | *(empty)* | Additional arguments forwarded verbatim to `llama-server`. |
+| `EXTRA_ARGS` | *(empty)* | Additional arguments appended to `llama-server` (split on whitespace; quotes not preserved). |
 
 ## Exposed Ports
 
