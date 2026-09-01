@@ -62,7 +62,13 @@ if [ "${AUTO_DOWNLOAD}" = "true" ]; then
             echo "[entrypoint] ERROR: Download failed. Please check HF_REPO and MODEL_FILE." >&2
             # Datei bei Fehlschlag löschen, um beim nächsten Boot keinen korrupten Zustand zu haben
             rm -f "${MODEL_PATH}/${MODEL_FILE}"
-            exit 1
+        fi
+        if wget -O "${MODEL_PATH}/${MODEL_FILE}" "${HF_URL}"; then
+            echo "[entrypoint] ✓ Download successfully completed!"
+        else
+            echo "[entrypoint] ERROR: Download failed. Please check HF_REPO and MODEL_FILE." >&2
+            # Datei bei Fehlschlag löschen, um beim nächsten Boot keinen korrupten Zustand zu haben
+            rm -f "${MODEL_PATH}/${MODEL_FILE}"
         fi
     fi
 fi
