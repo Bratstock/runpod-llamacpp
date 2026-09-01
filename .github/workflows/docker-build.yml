@@ -21,7 +21,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: docker/checkout@v4
+        uses: actions/checkout@v4
 
       # Richtet QEMU ein (wichtig, falls man Multi-Architektur bauen will, hier optional)
       - name: Set up QEMU
