@@ -93,8 +93,9 @@ if [ "${START_LLAMA}" = "true" ]; then
     LLAMA_ARGS=(
         --host "${HOST}"
         --port "${PORT}"
+        -lv 4
         --ctx-size "${CTX_SIZE}"
-        --cache-type-k "${CACHE_TYPE:-}" --cache-type-v "${CACHE_TYPE:-}" \
+        --cache-type-k "${CACHE_TYPE:-}" --cache-type-v "${CACHE_TYPE:-}"
         --parallel "${N_PARALLEL}"
         --n-gpu-layers "${N_GPU_LAYERS}"
         --model "${MODEL_PATH}/${MODEL_FILE}" # Wir starten IMMER mit dem lokalen Pfad!
