@@ -50,7 +50,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     gnupg \
     libcurl4 \
     libgomp1 \
-    nginx \
     openssh-server \
     wget \
     && rm -rf /var/lib/apt/lists/*
@@ -62,7 +61,7 @@ RUN wget https://developer.download.nvidia.com/compute/cuda/repos/debian13/x86_6
 # 3. Nur die für die Ausführung notwendige CUDA-13-Laufzeitbibliothek installieren
 RUN apt-get update && apt-get install -y --no-install-recommends \
     cuda-cudart-13-3 \
-    cuda-libraries-13-3 \
+    libcublas-13-3 \
     && rm -rf /var/lib/apt/lists/*
 
 # Systempfad für die GPU-Bibliotheken hinterlegen
