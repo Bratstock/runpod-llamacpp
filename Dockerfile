@@ -60,6 +60,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     wget \
     libcuda1 \
     libcublas12 \
+    libcudart12 \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Pfad für die nativen Debian-NVIDIA-Bibliotheken registrieren
