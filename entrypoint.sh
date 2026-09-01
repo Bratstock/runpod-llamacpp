@@ -37,7 +37,7 @@ if [ "${AUTO_DOWNLOAD}" = "true" ]; then
     fi
 
     # Zielverzeichnis im persistenten Speicher sicherstellen
-    if [ ! -d "${MODEL_PATH}"]; then
+    if [ ! -d "${MODEL_PATH}" ]; then
         mkdir -p "${MODEL_PATH}"
     fi
 
