@@ -57,7 +57,7 @@ jobs:
           context: .
           file: ./Dockerfile
           push: true
-          tags: ${{ std_out.meta.outputs.tags || steps.meta.outputs.tags }}
+          tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           # Nutzt den GitHub-internen Cache, damit Folgebau-Vorgänge in wenigen Minuten durch sind
           cache-from: type=gha
