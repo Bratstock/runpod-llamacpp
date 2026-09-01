@@ -1,4 +1,4 @@
-# Shared base: debian:trixie-slim with Nvidia CUDA 13.3 apt repository configured
+# Shared base: debian:trixie-slim with Nvidia CUDA 12.4 apt repository configured
 FROM debian:trixie AS builder
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -9,13 +9,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 RUN wget https://developer.download.nvidia.com/compute/cuda/repos/debian13/x86_64/cuda-keyring_1.1-1_all.deb && \
     dpkg -i cuda-keyring_1.1-1_all.deb && rm cuda-keyring_1.1-1_all.deb
 
-# Das aktuelle CUDA-13 Toolkit für den Compiler installieren
+# Das aktuelle CUDA-12 Toolkit für den Compiler installieren
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    cuda-toolkit-13-3 \
+    cuda-toolkit-12-4 \
     && rm -rf /var/lib/apt/lists/*
 
 # Pfade für den NVIDIA-Compiler (nvcc) setzen
-ENV PATH="/usr/local/cuda-13.3/bin:${PATH}"
+ENV PATH="/usr/local/cuda-12.4/bin:${PATH}"
 
 WORKDIR /app
 
@@ -58,14 +58,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 RUN wget https://developer.download.nvidia.com/compute/cuda/repos/debian13/x86_64/cuda-keyring_1.1-1_all.deb && \
     dpkg -i cuda-keyring_1.1-1_all.deb && rm -f cuda-keyring_1.1-1_all.deb
 
-# 3. Nur die für die Ausführung notwendige CUDA-13-Laufzeitbibliothek installieren
+# 3. Nur die für die Ausführung notwendige CUDA-12-Laufzeitbibliothek installieren
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    cuda-cudart-13-3 \
-    libcublas-13-3 \
+    cuda-cudart-12-4 \
+    libcublas-12-4 \
     && rm -rf /var/lib/apt/lists/*
 
 # Systempfad für die GPU-Bibliotheken hinterlegen
-ENV LD_LIBRARY_PATH="/usr/local/cuda-13.3/lib64:${LD_LIBRARY_PATH}"
+ENV LD_LIBRARY_PATH="/usr/local/cuda-12.4/lib64:${LD_LIBRARY_PATH}"
 
 # Kompilierten Server aus Stage 1 übernehmen
 COPY --from=builder /app/dist/ /usr/local/
