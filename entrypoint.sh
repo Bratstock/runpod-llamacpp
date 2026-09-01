@@ -1,6 +1,14 @@
 #!/bin/bash
 set -euo pipefail
 
+# Sauberes Herunterfahren bei SIGTERM/SIGINT
+cleanup() {
+    echo "[entrypoint] SIGTERM/SIGINT received. Shutting down cleanly..."
+    kill -TERM "${SSHD_PID}" "${LLAMA_PID}" 2>/dev/null || true
+    exit 0
+}
+trap cleanup SIGTERM SIGINT
+
 # ── SSH setup ─────────────────────────────────────────────────────────────────
 if [ -n "${SSH_PUBLIC_KEY:-}" ]; then
     echo "${SSH_PUBLIC_KEY}" > /root/.ssh/authorized_keys
@@ -65,10 +73,9 @@ echo "[entrypoint] Starting llama-server..."
 llama-server "${LLAMA_ARGS[@]}" &
 LLAMA_PID=$!
 
-# ── Wait for either process to exit ──────────────────────────────────────────
+# Wartet, bis einer der Prozesse stirbt
 wait -n "${SSHD_PID}" "${LLAMA_PID}"
 EXIT_CODE=$?
 
 echo "[entrypoint] A child process exited with code ${EXIT_CODE}. Shutting down."
-kill "${SSHD_PID}" "${LLAMA_PID}" 2>/dev/null || true
-exit "${EXIT_CODE}"
+cleanup

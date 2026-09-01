@@ -45,23 +45,31 @@ ENV TZ=Europe/Berlin
 
 # 1. Systempakete, Nginx (HTTPS-Proxy) und OpenSSH installieren
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    ca-certificates wget gnupg curl nginx openssh-server libcurl4 \
+    ca-certificates \
+    curl \
+    gnupg \
+    libcurl4 \
+    libgomp1 \
+    nginx \
+    openssh-server \
+    wget \
     && rm -rf /var/lib/apt/lists/*
 
 # 2. NVIDIA Repository auch in der Runtime aktivieren
 RUN wget https://developer.download.nvidia.com/compute/cuda/repos/debian13/x86_64/cuda-keyring_1.1-1_all.deb && \
-    dpkg -i cuda-keyring_1.1-1_all.deb && rm cuda-keyring_1.1-1_all.deb
+    dpkg -i cuda-keyring_1.1-1_all.deb && rm -f cuda-keyring_1.1-1_all.deb
 
 # 3. Nur die für die Ausführung notwendige CUDA-13-Laufzeitbibliothek installieren
 RUN apt-get update && apt-get install -y --no-install-recommends \
     cuda-cudart-13-3 \
+    cuda-libraries-13-3 \
     && rm -rf /var/lib/apt/lists/*
 
 # Systempfad für die GPU-Bibliotheken hinterlegen
 ENV LD_LIBRARY_PATH="/usr/local/cuda-13.3/lib64:${LD_LIBRARY_PATH}"
 
 # Kompilierten Server aus Stage 1 übernehmen
-COPY --from=builder /app/dist/* /usr/local
+COPY --from=builder /app/dist/ /usr/local/
 RUN ldconfig
 
 # Copy entrypoint script
