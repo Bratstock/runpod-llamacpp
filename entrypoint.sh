@@ -82,6 +82,10 @@ if [ ! -f "${MODEL_PATH}/${MODEL_FILE}" ]; then
     START_LLAMA=false
 fi
 
+if [ -n "${CACHE_TYPE:-}" ]; then
+    CACHE_TYPE="q8_0"
+fi
+
 # ── llama-server execution ────────────────────────────────────────────────────
 if [ "${START_LLAMA}" = "true" ]; then
     mkdir -p "${CACHE_DIR}"
@@ -90,6 +94,7 @@ if [ "${START_LLAMA}" = "true" ]; then
         --host "${HOST}"
         --port "${PORT}"
         --ctx-size "${CTX_SIZE}"
+        --cache-type-k "${CACHE_TYPE:-}" --cache-type-v "${CACHE_TYPE:-}" \
         --parallel "${N_PARALLEL}"
         --n-gpu-layers "${N_GPU_LAYERS}"
         --model "${MODEL_PATH}/${MODEL_FILE}" # Wir starten IMMER mit dem lokalen Pfad!
