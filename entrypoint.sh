@@ -6,10 +6,13 @@ set -euo pipefail
 # (z. B. im RunPod-Template) überschrieben werden.
 # Parameter mit Flag-Default lassen sich durch Leeren deaktivieren
 # (z. B. SPEC_TYPE="", METRICS=false, REASONING_EFFORT="").
+echo "Environment ..."
+echo $(env)
+echo "... end"
 
 HOST="${HOST:-0.0.0.0}"
 PORT="${PORT:-9931}"
-LOG_LEVEL="${LOG_LEVEL:-4}"
+LOG_LEVEL="${LOG_LEVEL:-2}"
 CTX_SIZE="${CTX_SIZE:-204800}"
 N_PARALLEL="${N_PARALLEL:-1}"
 N_GPU_LAYERS="${N_GPU_LAYERS:-}"            # leer → Argument wird nicht gesetzt (llama.cpp entscheidet)
