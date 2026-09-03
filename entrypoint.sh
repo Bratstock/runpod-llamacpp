@@ -10,12 +10,13 @@ echo "Environment ..."
 echo $(env)
 echo "... end"
 
-HOST="${HOST:-0.0.0.0}"
-PORT="${PORT:-9931}"
+LLAMA_HOST="${LLAMA_HOST:-0.0.0.0}"
+LLAMA_PORT="${LLAMA_PORT:-9931}"
+SSH_PUBLIC_KEY="${SSH_PUBLIC_KEY:-}"
 LOG_LEVEL="${LOG_LEVEL:-2}"
-CTX_SIZE="${CTX_SIZE:-204800}"
-N_PARALLEL="${N_PARALLEL:-1}"
-N_GPU_LAYERS="${N_GPU_LAYERS:-}"            # leer → Argument wird nicht gesetzt (llama.cpp entscheidet)
+LLAMA_CTX_SIZE="${LLAMA_CTX_SIZE:-204800}"
+LLAMA_N_PARALLEL="${LLAMA_N_PARALLEL:-1}"
+LLAMA_N_GPU_LAYERS="${LLAMA_N_GPU_LAYERS:-}"            # leer → Argument wird nicht gesetzt (llama.cpp entscheidet)
 BATCH_SIZE="${BATCH_SIZE:-4096}"
 CACHE_TYPE_K="${CACHE_TYPE_K:-q8_0}"
 CACHE_TYPE_V="${CACHE_TYPE_V:-q8_0}"
@@ -26,11 +27,11 @@ SPEC_DRAFT_TYPE_V="${SPEC_DRAFT_TYPE_V:-q8_0}"
 FIT_TARGET="${FIT_TARGET:-512}"
 METRICS="${METRICS:-true}"
 REASONING_EFFORT="${REASONING_EFFORT:-medium}"
-LLAMA_API_KEY="${LLAMA_API_KEY:-SuperSecretApiToken123}"
+API_KEY="${API_KEY:-SuperSecretApiToken123}"
 
-MODEL_PATH="${MODEL_PATH:-/workspace/models}"
-MODEL_FILE="${MODEL_FILE:-}"
-CACHE_DIR="${CACHE_DIR:-/workspace/cache}"
+LLAMA_MODEL_PATH="${LLAMA_MODEL_PATH:-/workspace/models}"
+LLAMA_MODEL_FILE="${LLAMA_MODEL_FILE:-}"
+LLAMA_CACHE_DIR="${LLAMA_CACHE_DIR:-/workspace/cache}"
 
 # Download/Netzwerk
 DNS_TARGET_HOST="huggingface.co"
@@ -41,8 +42,8 @@ WATCH_MODEL_INTERVAL="${WATCH_MODEL_INTERVAL:-10}"
 
 # Alias: Default = Modell-Dateiname ohne Endung
 # (Qwen3.8-27B-UD-Q5_K_XL.gguf → Qwen3.8-27B-UD-Q5_K_XL), per ALIAS überschreibbar.
-if [ -n "${MODEL_FILE}" ]; then
-    MODEL_BASENAME="$(basename "${MODEL_FILE}")"
+if [ -n "${LLAMA_MODEL_FILE}" ]; then
+    MODEL_BASENAME="$(basename "${LLAMA_MODEL_FILE}")"
     ALIAS="${ALIAS:-${MODEL_BASENAME%.*}}"
 else
     ALIAS="${ALIAS:-}"
@@ -95,7 +96,7 @@ wait_for_dns() {
 # Download mit Resume (-C -) und Retry. Teil-Dateien bleiben bei
 # Zwischenfehlern erhalten, damit der nächste Versuch fortgesetzt wird.
 download_model() {
-    local dest="${MODEL_PATH}/${MODEL_FILE}"
+    local dest="${LLAMA_MODEL_PATH}/${LLAMA_MODEL_FILE}"
     local attempt
     for (( attempt=1; attempt<=DOWNLOAD_RETRIES; attempt++ )); do
         echo "[entrypoint] Download attempt ${attempt}/${DOWNLOAD_RETRIES}: ${HF_URL}"
@@ -143,12 +144,12 @@ wait_for_stable_file() {
 # llama-server startet automatisch, sobald das Modell auftaucht — z. B.
 # nach einem manuellen Upload per SSH.
 watch_for_model() {
-    echo "[entrypoint] Watch mode: waiting for ${MODEL_PATH}/${MODEL_FILE} ..."
+    echo "[entrypoint] Watch mode: waiting for ${LLAMA_MODEL_PATH}/${LLAMA_MODEL_FILE} ..."
     while true; do
-        if [ -f "${MODEL_PATH}/${MODEL_FILE}" ]; then
+        if [ -f "${LLAMA_MODEL_PATH}/${LLAMA_MODEL_FILE}" ]; then
             echo "[entrypoint] Model file detected. Waiting for stable size (upload complete)..."
-            wait_for_stable_file "${MODEL_PATH}/${MODEL_FILE}"
-            echo "[entrypoint] ✓ Model ready: ${MODEL_PATH}/${MODEL_FILE} ($(stat -c%s "${MODEL_PATH}/${MODEL_FILE}") bytes)"
+            wait_for_stable_file "${LLAMA_MODEL_PATH}/${LLAMA_MODEL_FILE}"
+            echo "[entrypoint] ✓ Model ready: ${LLAMA_MODEL_PATH}/${LLAMA_MODEL_FILE} ($(stat -c%s "${LLAMA_MODEL_PATH}/${LLAMA_MODEL_FILE}") bytes)"
             return 0
         fi
         sleep "${WATCH_MODEL_INTERVAL}"
@@ -173,27 +174,27 @@ echo "[entrypoint] Starting sshd..."
 SSHD_PID=$!
 
 # ── Modell: Download, falls angefordert ───────────────────────────────────────
-# MODEL_FILE leer → weder Download noch llama-server; der Container läuft
+# LLAMA_MODEL_FILE leer → weder Download noch llama-server; der Container läuft
 # nur mit sshd weiter (SSH-Only-Modus).
 START_LLAMA=false
 
-if [ -z "${MODEL_FILE}" ]; then
-    echo "[entrypoint] NOTICE: MODEL_FILE is not set. Skipping model download and llama-server."
+if [ -z "${LLAMA_MODEL_FILE}" ]; then
+    echo "[entrypoint] NOTICE: LLAMA_MODEL_FILE is not set. Skipping model download and llama-server."
     echo "[entrypoint] Entering SSH-ONLY mode."
-elif [ -f "${MODEL_PATH}/${MODEL_FILE}" ]; then
+elif [ -f "${LLAMA_MODEL_PATH}/${LLAMA_MODEL_FILE}" ]; then
     START_LLAMA=true
-elif [ "${AUTO_DOWNLOAD:-false}" = "true" ]; then
+elif [ "${MODEL_AUTO_DOWNLOAD:-false}" = "true" ]; then
     if [ -z "${HF_REPO:-}" ]; then
-        echo "[entrypoint] ERROR: AUTO_DOWNLOAD=true but HF_REPO is not set." >&2
+        echo "[entrypoint] ERROR: MODEL_AUTO_DOWNLOAD=true but HF_REPO is not set." >&2
         exit 1
     fi
 
     # Zielverzeichnis im persistenten Speicher sicherstellen
-    mkdir -p "${MODEL_PATH}"
+    mkdir -p "${LLAMA_MODEL_PATH}"
 
     # Die offizielle HF-Download-URL (huggingface.co, nicht .com)
-    HF_URL="https://huggingface.co/${HF_REPO}/resolve/main/${MODEL_FILE}"
-    echo "[entrypoint] Preparing download for: ${HF_REPO} / ${MODEL_FILE}"
+    HF_URL="https://huggingface.co/${HF_REPO}/resolve/main/${LLAMA_MODEL_FILE}"
+    echo "[entrypoint] Preparing download for: ${HF_REPO} / ${LLAMA_MODEL_FILE}"
 
     # Zuerst DNS warten — auf RunPod ist der Resolver beim Container-Start
     # häufig noch nicht betriebsbereit.
@@ -201,46 +202,46 @@ elif [ "${AUTO_DOWNLOAD:-false}" = "true" ]; then
         if ! download_model; then
             echo "[entrypoint] ERROR: All ${DOWNLOAD_RETRIES} download attempts failed." >&2
             # Teil-Datei löschen, damit der Watch-Mode keine korrupte Datei annimmt
-            rm -f "${MODEL_PATH}/${MODEL_FILE}"
+            rm -f "${LLAMA_MODEL_PATH}/${LLAMA_MODEL_FILE}"
         else
             START_LLAMA=true
         fi
     else
-        rm -f "${MODEL_PATH}/${MODEL_FILE}"
+        rm -f "${LLAMA_MODEL_PATH}/${LLAMA_MODEL_FILE}"
     fi
 fi
 
-if [ "${START_LLAMA}" = "false" ] && [ -n "${MODEL_FILE}" ]; then
-    echo "[entrypoint] NOTICE: No model available at ${MODEL_PATH}/${MODEL_FILE}."
+if [ "${START_LLAMA}" = "false" ] && [ -n "${LLAMA_MODEL_FILE}" ]; then
+    echo "[entrypoint] NOTICE: No model available at ${LLAMA_MODEL_PATH}/${LLAMA_MODEL_FILE}."
     if [ "${WATCH_MODEL}" = "true" ]; then
         echo "[entrypoint] Entering watch mode: upload the model (e.g. via SSH) and"
         echo "[entrypoint] the server will start automatically once it appears."
         watch_for_model
         START_LLAMA=true
     else
-        echo "[entrypoint] Entering SSH-ONLY standby mode. Upload a model or restart with AUTO_DOWNLOAD=true."
+        echo "[entrypoint] Entering SSH-ONLY standby mode. Upload a model or restart with MODEL_AUTO_DOWNLOAD=true."
     fi
 fi
 
 # ── llama-server execution ────────────────────────────────────────────────────
 if [ "${START_LLAMA}" = "true" ]; then
-    mkdir -p "${CACHE_DIR}"
+    mkdir -p "${LLAMA_CACHE_DIR}"
 
     LLAMA_ARGS=(
-        --host "${HOST}"
-        --port "${PORT}"
+        --host "${LLAMA_HOST}"
+        --port "${LLAMA_PORT}"
         -lv "${LOG_LEVEL}"
-        --ctx-size "${CTX_SIZE}"
-        --parallel "${N_PARALLEL}"
-        --model "${MODEL_PATH}/${MODEL_FILE}"   # Wir starten IMMER mit dem lokalen Pfad!
+        --ctx-size "${LLAMA_CTX_SIZE}"
+        --parallel "${LLAMA_N_PARALLEL}"
+        --model "${LLAMA_MODEL_PATH}/${LLAMA_MODEL_FILE}"   # Wir starten IMMER mit dem lokalen Pfad!
     )
 
     if [ -n "${ALIAS}" ]; then
         LLAMA_ARGS+=(--alias "${ALIAS}")
     fi
 
-    if [ -n "${N_GPU_LAYERS}" ]; then
-        LLAMA_ARGS+=(--n-gpu-layers "${N_GPU_LAYERS}")
+    if [ -n "${LLAMA_N_GPU_LAYERS}" ]; then
+        LLAMA_ARGS+=(--n-gpu-layers "${LLAMA_N_GPU_LAYERS}")
     fi
     if [ -n "${BATCH_SIZE}" ]; then
         LLAMA_ARGS+=(--batch-size "${BATCH_SIZE}")
@@ -272,10 +273,10 @@ if [ "${START_LLAMA}" = "true" ]; then
     if [ -n "${REASONING_EFFORT}" ]; then
         LLAMA_ARGS+=(--reasoning-effort "${REASONING_EFFORT}")
     fi
-    if [ -n "${LLAMA_API_KEY}" ]; then
-        LLAMA_ARGS+=(--api-key "${LLAMA_API_KEY}")
+    if [ -n "${API_KEY}" ]; then
+        LLAMA_ARGS+=(--api-key "${API_KEY}")
     else
-        echo "[entrypoint] WARNING: LLAMA_API_KEY is not set. The API will be accessible without authentication."
+        echo "[entrypoint] WARNING: API_KEY is not set. The API will be accessible without authentication."
     fi
 
     if [ -n "${EXTRA_ARGS:-}" ]; then
@@ -284,8 +285,8 @@ if [ "${START_LLAMA}" = "true" ]; then
     fi
 
     # API-Key in den Logs maskieren
-    if [ -n "${LLAMA_API_KEY}" ]; then
-        echo "[entrypoint] Starting llama-server: ${LLAMA_ARGS[*]//${LLAMA_API_KEY}/<api-key>}"
+    if [ -n "${API_KEY}" ]; then
+        echo "[entrypoint] Starting llama-server: ${LLAMA_ARGS[*]//${API_KEY}/<api-key>}"
     else
         echo "[entrypoint] Starting llama-server: ${LLAMA_ARGS[*]}"
     fi
