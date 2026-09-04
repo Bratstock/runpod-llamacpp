@@ -4,3 +4,6 @@
 *.swo
 .kate-swp
 *.kate-swp
+
+# Local task notes (developer agent)
+.developer-task.md
