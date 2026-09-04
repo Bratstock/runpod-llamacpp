@@ -6,10 +6,6 @@ set -euo pipefail
 # (z. B. im RunPod-Template) überschrieben werden.
 # Parameter mit Flag-Default lassen sich durch Leeren deaktivieren
 # (z. B. SPEC_TYPE="", METRICS=false, REASONING_EFFORT="").
-echo "Environment ..."
-echo $(env)
-echo "... end"
-
 LLAMA_HOST="${LLAMA_HOST:-0.0.0.0}"
 LLAMA_PORT="${LLAMA_PORT:-9931}"
 SSH_PUBLIC_KEY="${SSH_PUBLIC_KEY:-}"
@@ -27,7 +23,7 @@ SPEC_DRAFT_TYPE_V="${SPEC_DRAFT_TYPE_V:-q8_0}"
 FIT_TARGET="${FIT_TARGET:-512}"
 METRICS="${METRICS:-true}"
 REASONING_EFFORT="${REASONING_EFFORT:-medium}"
-API_KEY="${API_KEY:-SuperSecretApiToken123}"
+LLAMA_API_KEY="${LLAMA_API_KEY:-}"
 
 LLAMA_MODEL_PATH="${LLAMA_MODEL_PATH:-/workspace/models}"
 LLAMA_MODEL_FILE="${LLAMA_MODEL_FILE:-}"
@@ -273,10 +269,10 @@ if [ "${START_LLAMA}" = "true" ]; then
     if [ -n "${REASONING_EFFORT}" ]; then
         LLAMA_ARGS+=(--reasoning-effort "${REASONING_EFFORT}")
     fi
-    if [ -n "${API_KEY}" ]; then
-        LLAMA_ARGS+=(--api-key "${API_KEY}")
+    if [ -n "${LLAMA_API_KEY}" ]; then
+        LLAMA_ARGS+=(--api-key "${LLAMA_API_KEY}")
     else
-        echo "[entrypoint] WARNING: API_KEY is not set. The API will be accessible without authentication."
+        echo "[entrypoint] WARNING: LLAMA_API_KEY is not set. The API will be accessible without authentication."
     fi
 
     if [ -n "${EXTRA_ARGS:-}" ]; then
@@ -285,8 +281,8 @@ if [ "${START_LLAMA}" = "true" ]; then
     fi
 
     # API-Key in den Logs maskieren
-    if [ -n "${API_KEY}" ]; then
-        echo "[entrypoint] Starting llama-server: ${LLAMA_ARGS[*]//${API_KEY}/<api-key>}"
+    if [ -n "${LLAMA_API_KEY}" ]; then
+        echo "[entrypoint] Starting llama-server: ${LLAMA_ARGS[*]//${LLAMA_API_KEY}/<api-key>}"
     else
         echo "[entrypoint] Starting llama-server: ${LLAMA_ARGS[*]}"
     fi

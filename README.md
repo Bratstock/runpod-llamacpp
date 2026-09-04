@@ -22,7 +22,7 @@ with environment variables that RunPod sets itself.
 
 | Variable | Default | Description |
 |---|---|---|
-| `API_KEY` | `SuperSecretApiToken123` | API key required for every request. Set to an empty value to disable auth (not recommended). |
+| `LLAMA_API_KEY` | *(empty)* | API key required for every request. Leave empty to disable auth (not recommended). |
 | `SSH_PUBLIC_KEY` | *(empty)* | SSH public key for root login (e.g. contents of `~/.ssh/id_ed25519.pub`). If not set, the container runs without SSH access. |
 | `LLAMA_MODEL_PATH` | `/workspace/models` | Directory where model files live (RunPod network storage). |
 | `LLAMA_MODEL_FILE` | *(empty)* | Filename of the GGUF model inside `LLAMA_MODEL_PATH`. If empty: no download and no `llama-server` — the container runs in SSH-only mode. |
@@ -70,7 +70,7 @@ filename inside it.
 ```bash
 docker run -d \
   -p 9931:9931 -p 2222:22 \
-  -e API_KEY="mysecretkey" \
+  -e LLAMA_API_KEY="mysecretkey" \
   -e SSH_PUBLIC_KEY="*** ~/.ssh/id_ed25519.pub)" \
   -e LLAMA_MODEL_PATH="/runpod-volume/models" \
   -e LLAMA_MODEL_FILE="mistral-7b.Q4_K_M.gguf" \
@@ -84,7 +84,7 @@ docker run -d \
 ```bash
 docker run -d \
   -p 9931:9931 -p 2222:22 \
-  -e API_KEY="mysecretkey" \
+  -e LLAMA_API_KEY="mysecretkey" \
   -e SSH_PUBLIC_KEY="*** ~/.ssh/id_ed25519.pub)" \
   -e MODEL_AUTO_DOWNLOAD=true \
   -e HF_REPO="TheBloke/Mistral-7B-Instruct-v0.2-GGUF" \
