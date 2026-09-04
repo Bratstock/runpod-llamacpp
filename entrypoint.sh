@@ -100,7 +100,7 @@ download_model() {
         if command -v curl >/dev/null 2>&1; then
             # -L follows redirects (HF → CDN), -C - resumes, -f fails on 404/401,
             # --retry 3: automatic retries on transient errors
-            if curl -L -C -f --progress-bar --connect-timeout 10 --retry 3 --retry-delay 10 \
+            if curl -L -C - -f --progress-bar --connect-timeout 10 --retry 3 --retry-delay 10 \
                 -o "${dest}" "${HF_URL}"; then
                 echo "[entrypoint] ✓ Download successfully completed!"
                 return 0
