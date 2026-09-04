@@ -9,7 +9,7 @@ set -euo pipefail
 LLAMA_HOST="${LLAMA_HOST:-0.0.0.0}"
 LLAMA_PORT="${LLAMA_PORT:-9931}"
 SSH_PUBLIC_KEY="${SSH_PUBLIC_KEY:-}"
-LOG_LEVEL="${LOG_LEVEL:-2}"
+LOG_LEVEL="${LOG_LEVEL:-3}"
 LLAMA_CTX_SIZE="${LLAMA_CTX_SIZE:-204800}"
 LLAMA_N_PARALLEL="${LLAMA_N_PARALLEL:-1}"
 LLAMA_N_GPU_LAYERS="${LLAMA_N_GPU_LAYERS:-}"            # empty → argument is not passed (llama.cpp decides)
