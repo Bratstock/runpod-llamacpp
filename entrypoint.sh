@@ -1,18 +1,18 @@
 #!/bin/bash
 set -euo pipefail
 
-# ── Konfiguration ─────────────────────────────────────────────────────────────
-# Alle Parameter haben sinnvolle Defaults und können per ENV-Variablen
-# (z. B. im RunPod-Template) überschrieben werden.
-# Parameter mit Flag-Default lassen sich durch Leeren deaktivieren
-# (z. B. SPEC_TYPE="", METRICS=false, REASONING_EFFORT="").
+# ── Configuration ─────────────────────────────────────────────────────────────
+# All parameters have sensible defaults and can be overridden via
+# environment variables (e.g. in a RunPod template).
+# Parameters with a flag default can be disabled by leaving them empty
+# (e.g. SPEC_TYPE="", METRICS=false, REASONING_EFFORT="").
 LLAMA_HOST="${LLAMA_HOST:-0.0.0.0}"
 LLAMA_PORT="${LLAMA_PORT:-9931}"
 SSH_PUBLIC_KEY="${SSH_PUBLIC_KEY:-}"
 LOG_LEVEL="${LOG_LEVEL:-2}"
 LLAMA_CTX_SIZE="${LLAMA_CTX_SIZE:-204800}"
 LLAMA_N_PARALLEL="${LLAMA_N_PARALLEL:-1}"
-LLAMA_N_GPU_LAYERS="${LLAMA_N_GPU_LAYERS:-}"            # leer → Argument wird nicht gesetzt (llama.cpp entscheidet)
+LLAMA_N_GPU_LAYERS="${LLAMA_N_GPU_LAYERS:-}"            # empty → argument is not passed (llama.cpp decides)
 BATCH_SIZE="${BATCH_SIZE:-4096}"
 CACHE_TYPE_K="${CACHE_TYPE_K:-q8_0}"
 CACHE_TYPE_V="${CACHE_TYPE_V:-q8_0}"
@@ -29,15 +29,15 @@ LLAMA_MODEL_PATH="${LLAMA_MODEL_PATH:-/workspace/models}"
 LLAMA_MODEL_FILE="${LLAMA_MODEL_FILE:-}"
 LLAMA_CACHE_DIR="${LLAMA_CACHE_DIR:-/workspace/cache}"
 
-# Download/Netzwerk
+# Download / network
 DNS_TARGET_HOST="huggingface.co"
-DNS_WAIT_TIMEOUT="${DNS_WAIT_TIMEOUT:-120}"     # Sek. warten, bis DNS auflöst (RunPod: Netz startet spät)
-DOWNLOAD_RETRIES="${DOWNLOAD_RETRIES:-3}"       # Äußere Download-Versuche (curl hat zusätzlich --retry)
-WATCH_MODEL="${WATCH_MODEL:-true}"              # true → nach manuellem SSH-Upload llama-server automatisch starten
+DNS_WAIT_TIMEOUT="${DNS_WAIT_TIMEOUT:-120}"     # seconds to wait until DNS resolves (RunPod: network starts late)
+DOWNLOAD_RETRIES="${DOWNLOAD_RETRIES:-3}"       # outer download attempts (curl additionally has --retry)
+WATCH_MODEL="${WATCH_MODEL:-true}"              # true → start llama-server automatically after a manual SSH upload
 WATCH_MODEL_INTERVAL="${WATCH_MODEL_INTERVAL:-10}"
 
-# Alias: Default = Modell-Dateiname ohne Endung
-# (Qwen3.8-27B-UD-Q5_K_XL.gguf → Qwen3.8-27B-UD-Q5_K_XL), per ALIAS überschreibbar.
+# Alias: default = model filename without extension
+# (Qwen3.8-27B-UD-Q5_K_XL.gguf → Qwen3.8-27B-UD-Q5_K_XL), overridable via ALIAS.
 if [ -n "${LLAMA_MODEL_FILE}" ]; then
     MODEL_BASENAME="$(basename "${LLAMA_MODEL_FILE}")"
     ALIAS="${ALIAS:-${MODEL_BASENAME%.*}}"
@@ -57,7 +57,7 @@ cleanup() {
 }
 trap cleanup SIGTERM SIGINT
 
-# ── Hilfsfunktionen ───────────────────────────────────────────────────────────
+# ── Helper functions ──────────────────────────────────────────────────────────
 dns_resolved() {
     if command -v getent >/dev/null 2>&1; then
         getent hosts "${DNS_TARGET_HOST}" >/dev/null 2>&1
@@ -70,9 +70,9 @@ dns_resolved() {
     fi
 }
 
-# Wartet, bis der DNS-Resolver den Hostnamen auflöst. Auf RunPod ist beim
-# Container-Start oft noch kein DNS verfügbar — daher Timeout-Loop statt
-# einmaligem Versuch.
+# Waits until the DNS resolver resolves the hostname. On RunPod, DNS is
+# often not available yet at container start — hence the timeout loop
+# instead of a single attempt.
 wait_for_dns() {
     local waited=0
     echo "[entrypoint] Waiting for DNS resolution of ${DNS_TARGET_HOST} (max ${DNS_WAIT_TIMEOUT}s)..."
@@ -89,8 +89,8 @@ wait_for_dns() {
     return 0
 }
 
-# Download mit Resume (-C -) und Retry. Teil-Dateien bleiben bei
-# Zwischenfehlern erhalten, damit der nächste Versuch fortgesetzt wird.
+# Download with resume (-C -) and retry. Partial files are kept on
+# intermediate failures so the next attempt can continue where it left off.
 download_model() {
     local dest="${LLAMA_MODEL_PATH}/${LLAMA_MODEL_FILE}"
     local attempt
@@ -98,8 +98,8 @@ download_model() {
         echo "[entrypoint] Download attempt ${attempt}/${DOWNLOAD_RETRIES}: ${HF_URL}"
 
         if command -v curl >/dev/null 2>&1; then
-            # -L Redirects (HF → CDN), -C - Resume, -f Fehler bei 404/401,
-            # --retry 3: automatische Retries bei transienten Fehlern
+            # -L follows redirects (HF → CDN), -C - resumes, -f fails on 404/401,
+            # --retry 3: automatic retries on transient errors
             if curl -L -C -f --progress-bar --connect-timeout 10 --retry 3 --retry-delay 10 \
                 -o "${dest}" "${HF_URL}"; then
                 echo "[entrypoint] ✓ Download successfully completed!"
@@ -121,7 +121,7 @@ download_model() {
     return 1
 }
 
-# Wartet, bis die Datei vorhanden UND ihre Größe stabil ist (Upload fertig).
+# Waits until the file exists AND its size is stable (upload finished).
 wait_for_stable_file() {
     local file="$1"
     local last_size=""
@@ -136,9 +136,9 @@ wait_for_stable_file() {
     done
 }
 
-# Watch-Mode: Der Container bleibt am Leben (sshd läuft weiter) und der
-# llama-server startet automatisch, sobald das Modell auftaucht — z. B.
-# nach einem manuellen Upload per SSH.
+# Watch mode: the container stays alive (sshd keeps running) and the
+# llama-server starts automatically as soon as the model appears — e.g.
+# after a manual upload via SSH.
 watch_for_model() {
     echo "[entrypoint] Watch mode: waiting for ${LLAMA_MODEL_PATH}/${LLAMA_MODEL_FILE} ..."
     while true; do
@@ -169,9 +169,9 @@ echo "[entrypoint] Starting sshd..."
 /usr/sbin/sshd -D -e &
 SSHD_PID=$!
 
-# ── Modell: Download, falls angefordert ───────────────────────────────────────
-# LLAMA_MODEL_FILE leer → weder Download noch llama-server; der Container läuft
-# nur mit sshd weiter (SSH-Only-Modus).
+# ── Model: download, if requested ─────────────────────────────────────────────
+# LLAMA_MODEL_FILE empty → no download and no llama-server; the container
+# keeps running with sshd only (SSH-only mode).
 START_LLAMA=false
 
 if [ -z "${LLAMA_MODEL_FILE}" ]; then
@@ -185,19 +185,19 @@ elif [ "${MODEL_AUTO_DOWNLOAD:-false}" = "true" ]; then
         exit 1
     fi
 
-    # Zielverzeichnis im persistenten Speicher sicherstellen
+    # Make sure the target directory exists in persistent storage
     mkdir -p "${LLAMA_MODEL_PATH}"
 
-    # Die offizielle HF-Download-URL (huggingface.co, nicht .com)
+    # The official HF download URL (huggingface.co, not .com)
     HF_URL="https://huggingface.co/${HF_REPO}/resolve/main/${LLAMA_MODEL_FILE}"
     echo "[entrypoint] Preparing download for: ${HF_REPO} / ${LLAMA_MODEL_FILE}"
 
-    # Zuerst DNS warten — auf RunPod ist der Resolver beim Container-Start
-    # häufig noch nicht betriebsbereit.
+    # Wait for DNS first — on RunPod the resolver is often not ready
+    # yet at container start.
     if wait_for_dns; then
         if ! download_model; then
             echo "[entrypoint] ERROR: All ${DOWNLOAD_RETRIES} download attempts failed." >&2
-            # Teil-Datei löschen, damit der Watch-Mode keine korrupte Datei annimmt
+            # Remove the partial file so watch mode does not accept a corrupt one
             rm -f "${LLAMA_MODEL_PATH}/${LLAMA_MODEL_FILE}"
         else
             START_LLAMA=true
@@ -229,7 +229,7 @@ if [ "${START_LLAMA}" = "true" ]; then
         -lv "${LOG_LEVEL}"
         --ctx-size "${LLAMA_CTX_SIZE}"
         --parallel "${LLAMA_N_PARALLEL}"
-        --model "${LLAMA_MODEL_PATH}/${LLAMA_MODEL_FILE}"   # Wir starten IMMER mit dem lokalen Pfad!
+        --model "${LLAMA_MODEL_PATH}/${LLAMA_MODEL_FILE}"   # We ALWAYS start with the local path!
     )
 
     if [ -n "${ALIAS}" ]; then
@@ -280,7 +280,7 @@ if [ "${START_LLAMA}" = "true" ]; then
         LLAMA_ARGS+=("${EXTRA_ARRAY[@]}")
     fi
 
-    # API-Key in den Logs maskieren
+    # Mask the API key in the logs
     if [ -n "${LLAMA_API_KEY}" ]; then
         echo "[entrypoint] Starting llama-server: ${LLAMA_ARGS[*]//${LLAMA_API_KEY}/<api-key>}"
     else
@@ -291,7 +291,7 @@ if [ "${START_LLAMA}" = "true" ]; then
     LLAMA_PID=$!
 fi
 
-# ── Prozess-Überwachung ───────────────────────────────────────────────────────
+# ── Process monitoring ────────────────────────────────────────────────────────
 if [ -n "${LLAMA_PID}" ]; then
     set +e
     wait -n "${SSHD_PID}" "${LLAMA_PID}"

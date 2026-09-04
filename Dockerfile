@@ -1,10 +1,10 @@
 # ==========================================
-# STAGE 1: Build (Debian Trixie mit nativem CUDA Compiler)
+# STAGE 1: Build (Debian Trixie with the native CUDA compiler)
 # ==========================================
 FROM debian:trixie AS builder
 ENV DEBIAN_FRONTEND=noninteractive
 
-# WICHTIG: contrib und non-free für die Paketquellen der Build-Stage aktivieren
+# IMPORTANT: enable contrib and non-free for the package repositories of the build stage
 RUN sed -i 's/Components: main/Components: main contrib non-free non-free-firmware/g' /etc/apt/sources.list.d/debian.sources
 
 #RUN cat /etc/apt/sources.list.d/debian.sources && false
@@ -18,7 +18,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     nvidia-cuda-toolkit \
     && rm -rf /var/lib/apt/lists/*
 
-# Pfad für den nativen Debian-nvcc Compiler setzen
+# Set the path for the native Debian nvcc compiler
 ENV PATH="/usr/lib/nvidia-cuda-toolkit/bin:${PATH}"
 
 WORKDIR /app
@@ -41,13 +41,13 @@ RUN cmake --install . --prefix /app/dist
 
 
 # ==========================================
-# STAGE 2: Runtime (Schlankes & Sicheres Debian Trixie)
+# STAGE 2: Runtime (lean Debian Trixie)
 # ==========================================
 FROM debian:trixie
 ENV DEBIAN_FRONTEND=noninteractive
 ENV TZ=Europe/Berlin
 
-# WICHTIG: contrib und non-free auch für die Runtime-Stage aktivieren
+# IMPORTANT: enable contrib and non-free for the runtime stage as well
 RUN sed -i 's/Components: main/Components: main contrib non-free non-free-firmware/g' /etc/apt/sources.list.d/debian.sources
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -63,38 +63,27 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libcudart12 \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
-# Pfad für die nativen Debian-NVIDIA-Bibliotheken registrieren
+# Register the path of the native Debian NVIDIA libraries
 ENV LD_LIBRARY_PATH="/usr/lib/x86_64-linux-gnu/nvidia:${LD_LIBRARY_PATH}"
 
-# Kompilierten Server und Bibliotheken aus Stage 1 übernehmen
+# Take over the compiled server and libraries from stage 1
 COPY --from=builder /app/dist/ /usr/local/
 RUN ldconfig
 
-# Entrypoint und SSH-Konfiguration
+# Entrypoint and SSH configuration
 COPY entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
-# Nginx wurde entfernt, da llama-server das Web-UI direkt mitbringt!
+# Nginx was removed because llama-server ships the web UI directly!
 RUN mkdir -p /var/run/sshd /root/.ssh && chmod 700 /root/.ssh
 RUN sed -i 's/^#\?PermitRootLogin.*/PermitRootLogin prohibit-password/' /etc/ssh/sshd_config && \
     sed -i 's/^#\?PasswordAuthentication.*/PasswordAuthentication no/' /etc/ssh/sshd_config && \
     sed -i 's/^#\?PubkeyAuthentication.*/PubkeyAuthentication yes/' /etc/ssh/sshd_config && \
     echo "AuthorizedKeysFile .ssh/authorized_keys" >> /etc/ssh/sshd_config
 
-EXPOSE 22 8080
+EXPOSE 22 9931
 
-ENV LLAMA_API_KEY="" \
-    SSH_PUBLIC_KEY="" \
-    MODEL_PATH="/opt/models/model.gguf" \
-    CACHE_DIR="/opt/cache" \
-    AUTO_DOWNLOAD="false" \
-    HF_REPO="" \
-    HF_FILE="" \
-    N_GPU_LAYERS="0" \
-    CTX_SIZE="4096" \
-    N_PARALLEL="1" \
-    HOST="0.0.0.0" \
-    PORT="8080" \
-    EXTRA_ARGS=""
+# All configuration defaults live centrally in entrypoint.sh —
+# no environment variables are intentionally set here.
 
 ENTRYPOINT ["/entrypoint.sh"]

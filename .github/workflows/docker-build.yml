@@ -6,7 +6,7 @@ on:
       - 'main'
       - 'master'
     tags:
-      - 'v*' # Triggert bei Releases wie v0.1.0
+      - 'v*' # triggered by releases like v0.1.0
 
 env:
   REGISTRY: ghcr.io
@@ -23,15 +23,15 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # Richtet QEMU ein (wichtig, falls man Multi-Architektur bauen will, hier optional)
+      # Set up QEMU (important for multi-architecture builds, optional here)
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
 
-      # Richtet Buildx ein (Nutzung von erweiterten Docker-Caches)
+      # Set up Buildx (enables extended Docker caches)
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      # Loggt sich mit den GitHub-eigenen Tokens in die GitHub Registry ein
+      # Log in to the GitHub container registry using GitHub's own tokens
       - name: Log in to the Container registry
         uses: docker/login-action@v3
         with:
@@ -39,7 +39,7 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # Generiert automatische Docker-Tags (z.B. "latest" oder die Commit-SHA)
+      # Generate automatic Docker tags (e.g. "latest" or the commit SHA)
       - name: Extract Docker metadata
         id: meta
         uses: docker/metadata-action@v5
@@ -50,7 +50,7 @@ jobs:
             type=semver,pattern={{version}}
             type=sha,format=long
 
-      # Der eigentliche Bau und Push-Prozess
+      # The actual build and push
       - name: Build and push Docker image
         uses: docker/build-push-action@v6
         with:
@@ -59,7 +59,7 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          # Nutzt den GitHub-internen Cache, damit Folgebau-Vorgänge in wenigen Minuten durch sind
+          # Uses GitHub's internal cache so subsequent builds finish within minutes
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
