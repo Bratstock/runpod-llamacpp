@@ -1,0 +1,44 @@
+services:
+  llama-backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: runpod-llamacpp:local
+    container_name: runpod_llamacpp_local_test
+    restart: unless-stopped
+    # entrypoint: tail -f /dev/null
+
+    # Publish ports to the host (SSH moved to 2222 to avoid conflicts with your local setup)
+    ports:
+      - "2222:22"    # SSH
+      - "9931:9931"  # llama.cpp HTTP API
+
+    # Environment variables
+    environment:
+      - LLAMA_API_KEY=***
+      - SSH_PUBLIC_KEY=ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAI... your_local_key
+      - LLAMA_MODEL_PATH=/workspace/models
+      - LLAMA_MODEL_FILE=Qwen3.8-2B-Q6_K.gguf
+      - LLAMA_CACHE_DIR=/workspace/cache
+      - LLAMA_N_GPU_LAYERS=999   # Load all layers into VRAM
+      - LLAMA_CTX_SIZE=40960
+      - LLAMA_N_PARALLEL=2       # Allow 2 parallel requests
+      - LLAMA_HOST=0.0.0.0
+      - LLAMA_PORT=9931
+      - MODEL_AUTO_DOWNLOAD=false
+      # - HF_REPO=QuantFactory/Meta-Llama-3-8B-Instruct-GGUF
+      # - LLAMA_MODEL_FILE=Meta-Llama-3-8B-Instruct.Q4_K_M.gguf
+
+    # Volumes for persistent data and models
+    volumes:
+      - ./models:/workspace/models
+      - ./cache:/workspace/cache
+
+    # Enable the NVIDIA GPU for local passthrough
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]

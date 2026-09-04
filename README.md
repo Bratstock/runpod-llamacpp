@@ -126,6 +126,28 @@ model via SSH, and the server starts on its own.
 If `LLAMA_MODEL_FILE` is empty, the container runs in SSH-only mode: only
 `sshd` is running, no download, no `llama-server`.
 
+## Local testing with docker compose
+
+The repository contains a `docker-compose.yml` for local testing. It builds
+the image from the local `Dockerfile` (no registry pull) and mounts `./models`
+and `./cache` into the container.
+
+Before starting it, adapt the `environment` section (API key, SSH key, model
+filename) and make sure the file named in `LLAMA_MODEL_FILE` is inside
+`./models` — or set `MODEL_AUTO_DOWNLOAD=true` with a matching `HF_REPO`.
+The `deploy:` section requires the [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/);
+remove it if you do not have a GPU.
+
+```bash
+docker compose up -d --build      # build the image and start the container
+docker logs -f runpod_llamacpp_local_test
+
+# test the API
+curl http://localhost:9931/v1/models -H "Authorization: Bearer ***"
+
+docker compose down               # stop the container
+```
+
 ## Building
 
 ```bash
